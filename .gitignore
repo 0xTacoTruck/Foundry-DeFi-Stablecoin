@@ -21,3 +21,6 @@ lib/foundry-devops/
 
 #Open Zeppelin contracts
 lib/openzeppelin-contracts
+
+#Wake compilation
+.wake/

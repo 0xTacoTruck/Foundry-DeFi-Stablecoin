@@ -62,8 +62,16 @@ contract DecentralisedStableCoin is ERC20Burnable, Ownable {
     // Constructor    //
     ////////////////////
 
-    /* @note - Because of the change that Open Zeppelin did in requiring contract owner address to be passed to the constructor for Ownable, I'm using msg.sender for now until development of the stablecoin engine is in progress. I want to make sure I can pass or set the owner contract address to the engine at some point (intial thinking) */
+    /* @note - Because of the change that Open Zeppelin did in requiring contract owner address to be passed to the constructor for Ownable, I'm using msg.sender for now until development of the stablecoin engine is in progress. I want to make sure I can pass or set the owner contract address to the engine at some point (intial thinking) 
+    * @note - Because I decided to roll-back the version of Open Zeppelin contracts from 5.x.x -> 4.8.3, the Ownable contract does not require the contract owner address to be passed in the constructor, because of this version. I do want to explore and confirm if my thinking was on track for this constructor input though
+
     constructor() ERC20("DecentralisedStableCoin", "DSC") Ownable(msg.sender) {}
+
+     @note ------ THE FOLLOWING PARAGRAPH WAS TAKEN FROM THE HELPERCONFIG.SOL FILE, WHERE IT WAS POSITIONED JUST BEFORE CALLING TRANSFER OWNSERSHIP ------
+                "It is intersting to see that the transfer is done manually. If you refer to my notes on the DecentralisedStableCoin.sol file, you will see that I was leaning toward doing it in the constructor as part of initialisation. Perhaps that is overthinking and introduces an issue that im not aware of"
+    
+    */
+    constructor() ERC20("DecentralisedStableCoin", "DSC") Ownable() {}
 
     //There is 2 major functions we want our engine to own:
     // 1.function to burn tokens

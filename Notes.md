@@ -124,3 +124,92 @@ _uint256 amount_: This represents the value associated with each token address i
 _private_: This keyword denotes that the mapping is only accessible within the current contract and cannot be accessed or modified from outside the contract.
 
 So, in summary, this mapping is used to track the amount of each ERC20 token deposited by each user in a smart contract. It allows the contract to keep a record of the collateral deposited by users.
+
+## Walkthrough of the Health Factor Rating & Associated Math Used in This Project
+
+In this project, we use the ratio of collateral value a user has, against the number of minted DSC a user has to determine the health factor of the user.
+
+To achieve this, we are required to decide what percentage minimum extra value a users collateral must be in order to keep the system in overcollateralisation. This percentage is normally quite a bit higher then the value of the collateral so that liquidation can occur before any negative consequences occur for our stablecoin and the system in general (we are pegging our token to the USD).
+
+To ensure you understand what is happening in this process, we will walk through what is occuring in the project.
+
+Firstly, this example assumes we have already got the total collateral value of a user in USD, and we also have the number of minted DSC a user has.
+
+### Thresholds and Precision values
+
+In this project, we use constant variables to store our projects threshold, and also the precision we want to employ for calculations.
+
+```
+ uint256 private constant PRECISION = 1e18;
+
+//Liquidation threshold - used to determine when to liquidate a user so that we always remain overcollateralised. VIEW LIKE 50 OUT OF 100, OR 50%
+uint256 private constant LIQUIDATION_THRESHOLD = 50; // means you need to be 200% overcollateralised
+
+//Liquidiation precision - VIEW LIKE 100%, OR 100 OUR OF 100
+uint256 private constant LIQUIDATION_PRECISION = 100;
+```
+
+As you can see in the comments, its easier to think of these values as a percentage out of 100.
+
+**But what does the 50 in the LIQUIDATION_THRESHOLD variable actually mean?**
+
+What this value means is that even if the value of the collateral drops by half, it still covers the DSC debt. Therefore, users need to maintain 200% collateralisation.
+
+So if we imagine the whole collateral value is worth $200 USD, our code allows the user to have $100 USD worth of our USD pegged DSC tokens - meaning 100 DSC.
+If the users collateral became volatile and decreasing in value, we allow the users total collateral value to drop by 50% before we liquidate - e.g. the users collateral is now worth $100 USD - the same as our DSC token, which threatens the pegging of our DSC to the USD if the price continues to fall, and will violate our overcollateralised system.
+
+**What is the LIQUIDATION_PRECISION?**
+
+The LIQUIDATION_PRECISION value represents the granularity of the liquidation threshold. A higher precision means the threshold is more finely divided, while a lower precision results in a coarser threshold.
+
+The LIQUIDATION_PRECISION constant is used to divide the liquidation threshold value. When the precision is higher, the liquidation threshold value is divided into more parts, making the threshold stricter. This means that users need to maintain a higher level of collateral relative to their debt to avoid liquidation.
+
+Conversely, when the precision is lower, the liquidation threshold value is divided into fewer parts, making the threshold more lenient. Users may need to maintain a lower level of collateral relative to their debt to avoid liquidation.
+
+**Using the Threshold and Precision in Equation**
+
+```
+uint256 collateralAdjustedForThreshold =
+            (totalCollateralValueInUSD * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+
+        //Will be a very large number because of the exponent, but calling function can compare against 1e18 to determine if below minimum health score
+        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
+```
+
+Calculating these equations, we can generate a value that is 1e18 long. Which we can make easier for human readers by dividing by 1e18. Lets walk through an example using the constant variables from before:
+
+```
+ collateralAdjustedForThreshold = ($200 * 50) / 100 =  100
+
+ Health Factor = (100 (from result above) * 1e18) => 100,000,000,000,000,000,000 (100e18) / 100 (total DSC minted by user) = 1,000,000,000,000,000,000 (1e18)
+
+ Health Factor = 1,000,000,000,000,000,000 / 1e18 = 1
+```
+
+Our Project says that the MINIMUM health score we allow before liquidation is 1. Anything below the value of 1 will trigger liquidation. So the user in this first example is healthy.
+
+Let's walk through another example:
+
+```
+collateralAdjustedForThreshold = ($175 * 50) / 100 = 87.5
+
+Health Factor = (87.5 (from result above) * 1e18) => 87,500,000,000,000,000,000 (87.5e18) / 100 (total DSC minted by user) = 875,000,000,000,000,000
+
+Health Factor = 875,000,000,000,000,000 / 1e18 = 0.875
+```
+
+This user is found to only have a health factor of 0.875, meaning its violated our over collaterisation threshold measures and this user can and will be liquidated!
+
+## Testing while Developing Tip
+
+After laying down some foundational logic, we want to begin to incorporate testing into our project lifecycle so that we are able to identify and rectify any problems earlier in the project lifecycle. We don't want to spend months or years working on a very large codebase without conducting periodic testing, only to have to re-enter a significant development cycle when we finally conduct thorough testing and uncover a number of issues. Sometimes the issues will affect other areas of your code that will then also require fixing!
+
+A simple approach to use is:
+1. Build out the rough layout of your code, using any design documents to aid in this.
+2. Compile code to help identify any issues straight away (e.g. syntax violations, access modifiers, etc)
+3. Begin to tackle one function, or one design requirement at a time. Break large requirements into smaller sections and work through those.
+4. When you have built out some logic in functions, or abstract contracts, libraries, etc. Begin to write some unit tests for those pieces of logic. You may also need to work on creating deploy contracts, to be able to deploy the project code youre working on for testing. Your testing scope will also broaden to include interactions outside of your smart contracts!
+5. Run tests, record results, rectify issues, run tests, record results, rectify issues.... Repeat until the issues are resolved and the code operates as expected and meets design, security, and compliance requirements.
+6. Repeat steps 3-5 until development is complete
+
+This is a very brief and high-level guide. There are many resources available that dive deeper into this topic, but I wanted to ensure that I included some brief guidance.
