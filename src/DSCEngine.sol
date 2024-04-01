@@ -116,6 +116,11 @@ contract DSCEngine is ReentrancyGuard {
     //Minimum health factor score to determine if a user holds a healthy position or if they are to be liquidated.
     uint256 private constant MIN_HEALTH_FACTOR = 1e18;
 
+    // The Liquidation bonus for users that liquidate bad positioned users. To reward them for protecting stability of protocol.
+    uint256 private constant LIQUIDATION_BONUS = 10; // This means 10% bonus
+
+
+
     ////////////////////
     // Errors         //
     ////////////////////
@@ -127,6 +132,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TransferFailed();
     error DSCEngine__BreaksHealthFactor(uint256 healthFactorValue);
     error DSCEngine__MintFailed();
+    error DSCEngine__HealthFactorOK();
 
     ////////////////////
     // Events         //
@@ -134,8 +140,9 @@ contract DSCEngine is ReentrancyGuard {
 
     //Remember Events can have up to 3 indexed parameters - indexed parameters AKA Topics
     //Indexed Params are searchable by topic
-    event DSCEngine__CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
-    event DSCEngine__DSCMinted(address indexed user, uint256 indexed amount);
+    event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
+    event DSCMinted(address indexed user, uint256 indexed amount);
+    event CollateralRedeemed(address indexed user, address indexed token, uint256 indexed amount);
 
     ////////////////////
     // Modifiers     //
@@ -171,9 +178,9 @@ contract DSCEngine is ReentrancyGuard {
      * @param priceFeedAddresses - an array of pricefeed addresses. Will use USD pricefeeds since our stablecoin is pegged to USD
      * @param DscAddress - the address of the Decentralised Stable Coin
      * 
-     * @dev - @note The DSC ERC20 contract is Ownable, the Ownnable contract requires the address of the contract owner as a parameter. Since we deploy the token before deploying the engine, msg.sender is the orignal owner but as part of constructor we should call the change owner function?? NOT 100% CERTAIN
-     *
-     */
+     * @dev ---> BELOW */
+    // @note The DSC ERC20 contract is Ownable, the Ownnable contract requires the address of the contract owner as a parameter. Since we deploy the token before deploying the engine, msg.sender is the orignal owner but as part of constructor we should call the change owner function?? NOT 100% CERTAIN
+    
     constructor(address[] memory tokenAddresses, address[] memory priceFeedAddresses, address DscAddress) {
         // Make sure that there is the same number of tokens and pricefeeds passed in
         if (tokenAddresses.length != priceFeedAddresses.length) {
@@ -194,9 +201,9 @@ contract DSCEngine is ReentrancyGuard {
         i_dsc = DecentralisedStableCoin(DscAddress);
     }
 
-    ////////////////////////
-    // External Functions //
-    ////////////////////////
+    /////////////////////////////////
+    // Public & External Functions //
+    /////////////////////////////////
 
     /**
      * We need to know what collateral they want to deposit, done by passing in the address of the collateral they want, plus we want the amount of collateral they want to deposit
@@ -207,7 +214,7 @@ contract DSCEngine is ReentrancyGuard {
      *
      */
     function depositCollateral(address tokenCollateralAddress, uint256 amountCollateral)
-        external
+        public
         moreThanZero(amountCollateral) // Amount must be more than 0
         isAllowedToken(tokenCollateralAddress) // Is the collateral token allowed
         nonReentrant // Non-Reentrant modifier to prevent re-entrancy attacks
@@ -216,7 +223,7 @@ contract DSCEngine is ReentrancyGuard {
         s_collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
 
         // Emit the deposited collateral event since we updated storage variable
-        emit DSCEngine__CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
+        emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
 
         // Transfer collateral from user to our contract
         // @note - relies on the tokenCollateralAddress inheriting from IERC20 interface
@@ -228,20 +235,104 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function depositCollateralAndMintDSC(address tokenCollateralAddress, uint256 amountCollateral)
+
+
+    /**
+    * This external function is used to deposit collateral, and the mint a specified amount of our DSC token. We check that non-zero values are passed in to the function
+    * @param tokenCollateralAddress - the address of the collateral token to deposit
+    * @param amountCollateral - the amount of collateral to deposit
+    * @param amountDscToMint - the amount of DSC to mint
+    *
+    */
+    function depositCollateralAndMintDSC(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountDscToMint)
         external
         moreThanZero(amountCollateral)
+        moreThanZero(amountDscToMint)
         isAllowedToken(tokenCollateralAddress)
         nonReentrant
     {
-        // Deposit collateral, update user amount of deposited collateral, mint our stablecoin ERC20 that is aligned with the amount of collateral deposited
+        depositCollateral(tokenCollateralAddress, amountCollateral);
+
+        mintDSC(amountDscToMint);
+
     }
 
-    function redeemCollateralForDSC() external {}
 
-    function redeemCollateral() external {}
 
-    function burnDSC() external {}
+    /**
+    * In order to redeem (withdraw) collateral, need to:
+    * 1. Update the amount of total collateral deposited by user
+    * 2. Emit event since we modified state. 
+    * 3. Attempt to transfer collateral to user - Revert transaction if failure
+    * 4. Check Health of user's position so we don't jeopardise our overcollateral protection and thresholds - require health factor of 1 AFTER collateral pulled
+    * 5. Revert if health check fails
+    */
+    //@note - This as a stand-alone withdraw function is incomplete, if a user has deposited $100 ETH and only minted $20 of DSC, but they try and withdraw all of it - the function will break. We don't handle any burning of DSC in this function. We need a burn function for users DSC, and we probably need a function to handle both burning and redeeming.
+    /** @param tokenCollateralAddress - the address of the collateral token to withdraw
+    * @param amountCollateral - the amount of collateral to withdraw
+    *
+    */
+    function redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral) public isAllowedToken(tokenCollateralAddress) moreThanZero(amountCollateral) nonReentrant {
+        // Update the amount of collateral use has of the specified token. Was thinking about adding checks in that the amount requested is less than the amount wanting to be withdraw, however, Patrick explains in the video that in these newer versions of solidity, this is not possible and it will revert.
+        s_collateralDeposited[msg.sender][tokenCollateralAddress] -= amountCollateral;
+
+        //Updated state, emit event
+        emit CollateralRedeemed(msg.sender, tokenCollateralAddress, amountCollateral);
+
+        // Normal thinking sugges to perform health check here, but this is quite gas inefficient. We can do the token trasnfer to user and then do health check because we will still revert the transaction if the health check fails
+        (bool success) = IERC20(tokenCollateralAddress).transfer(msg.sender, amountCollateral);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+
+        // Revert transaction if health check fails after updating collateral value of user
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
+
+
+
+
+    /**
+    * This function allows the user to redeem their collateral and burn DSC in one transaction.
+    * It will call our exisitng redeemCollateral & burnDSC functions
+    *
+    * Makes use of our modifers: moreThanZero, isAllowedToken, nonReentrant
+    * @param tokenCollateralAddress - the address of the collateral token to deposit
+    * @param amountCollateral - the amount of collateral to deposit
+    * @param amountDscToBurn - the amount of DSC to burn
+    */
+    function redeemCollateralForDSC(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountDscToBurn) external nonReentrant isAllowedToken(tokenCollateralAddress) moreThanZero(amountCollateral) moreThanZero(amountDscToBurn) {
+
+        burnDSC(amountDscToBurn);
+        
+        redeemCollateral(tokenCollateralAddress, amountCollateral);
+        // This function already checks the health factor, so we don't need to do it here
+    }
+
+    /**
+    * Function to allow the burning of user's DSC.
+    * Amount to burn must be more than zero.
+    *
+    * Do we need to check if burn affects health factor? Probably not since its reducing the debt position of the user. However, will add for now and can remove in future
+    *
+    * @param amountDsc - the amount of DSC to burn
+    *
+    */
+    function burnDSC(uint256 amountDsc) public moreThanZero(amountDsc) {
+        s_dscMinted[msg.sender] -= amountDsc;
+        //Attempt to transfer DSC from user to contract before we directly call the burn function of DSC contract
+        bool success = i_dsc.transferFrom(msg.sender, address(this), amountDsc);
+
+        //This conditional is hypothetically unreachable, because if the transferFrom fails, it will revert with the transferFrom error - If its been implemented correctly
+        if(!success) {
+            revert DSCEngine__TransferFailed();
+        }
+
+        i_dsc.burn(amountDsc);
+
+        // Remove in future if not required - Don't think it is required
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
 
     /**
      * Mint function scales in complexity compared to simple minting because we need to verify that the amount of collateral is worth more than the amount of DSC. It will have to use PriceFeeds, checking values, etc
@@ -251,7 +342,7 @@ contract DSCEngine is ReentrancyGuard {
      * @notice - They must have more collateral value than the minimum threshold we specify to maintain overcollateral protection. This will involve doing health factor check
      * @notice - THIS IS VERY SIMPLISTIC WHERE WE ARE NOT RETURNING OR CALCULATING HOW MANY TOKENS CAN BE MINTED
      */
-    function mintDSC(uint256 amountDscToMint) external moreThanZero(amountDscToMint) nonReentrant {
+    function mintDSC(uint256 amountDscToMint) public moreThanZero(amountDscToMint) nonReentrant {
         // Update amount of DSC user has minted (amount of debt)
         s_dscMinted[msg.sender] += amountDscToMint;
 
@@ -266,10 +357,57 @@ contract DSCEngine is ReentrancyGuard {
         }
 
         // Emit event - minted tokens
-        emit DSCEngine__DSCMinted(msg.sender, amountDscToMint);
+        emit DSCMinted(msg.sender, amountDscToMint);
     }
 
-    function liquidate() external {}
+
+    // @note - In future, we should add feature to liquidate protocol if the protocl becomes insovlent, add feature to sweep extra amounts into treasury during liquidation
+    /**
+    * This function will liquidate a user's debt position if they are below the liquidation threshold. They must maintain a health factor above 1 to avoid liquidation.
+    */
+    // @note - This function will take as input the amount of debt that needs to be covered - i.e the amount of collateral that needs to be liquidated to maintain the health factor above 1, and to prevent our system collapsing by maintaining overcollateralisation
+    // @note - We encourage people to act on liquidating bad positions of other users by giving them more collateral than what the DSC amount is that needs to be covered for.
+    /** 
+    * @notice - you can partially liquidate a user
+    *
+    * @notice - Our system reward users that liquidate bad positions with a 'liquidation bonus' for taking user funds
+    * @notice - This function assumes the protocol maintains roughly 200% collateralisation in order for this to work - because otherwise we can't give bonuses
+    * @notice - A known bug is that if the protocl were 100% or less collateralised, then we would not be able to give a bonus or incentivise liquidators. For example, if the price of the collateral plummeted before anyone could be liquidated.
+    *
+    * Need to check if user is below liquidation threshold, if not then revert
+    *
+    * @param tokenCollateralAddress - the address of the token that will be used as collateral to liquidate
+    * @param user - the address of the user to liquidate
+    * @param debtToCover - the amount of debt that needs to be covered (DSC to be burned to imrpove the users health)
+    */
+    function liquidate(address tokenCollateralAddress, address user, uint256 debtToCover) external moreThanZero(debtToCover) nonReentrant() isAllowedToken(tokenCollateralAddress) {
+        uint256 startingUserHealthFactor = _healthFactor(user);
+
+        if (startingUserHealthFactor >= MIN_HEALTH_FACTOR) {
+            revert DSCEngine__HealthFactorOK();
+        }
+
+        // We wanto to burn the user's DSC (debt) and take their collateral
+        // e.g bad user now has $140 ETH, $100 DSC --> which is below our threshold and 200% overcollateralisation
+        // Debt to cover from bad user is - $100
+        // We need to calculate how much $100 DSC == ??? ETH?
+        // Amount is ~0.05 ETH
+        uint256 collateralTokenAmountFromDebtBeingCovered = getTokenAmountFromUSD(tokenCollateralAddress, debtToCover);
+
+
+        // Want to calculate how much WETH we are going to give to liquidator, with the included 10% bonus
+        // e.g (0.05 ETH * 10) / 100 = 0.005 ETH
+        uint256 bonusCollateral = (collateralTokenAmountFromDebtBeingCovered * LIQUIDATION_BONUS) / LIQUIDATION_PRECISION;
+
+        uint256 totalCollateralToGiveLiquidator = collateralTokenAmountFromDebtBeingCovered + bonusCollateral;
+
+        // Need to give the liquidator the collateral and burn the DSC of the bad user
+        
+
+        
+    }
+
+
 
     ////////////////////////
     // Internal Functions //
@@ -335,7 +473,18 @@ contract DSCEngine is ReentrancyGuard {
     // Public & External View Functions //
     //////////////////////////////////////
 
-    function getHealthFactor() external view {}
+    /**
+     * Public function to allow anyone to check the health factor score of a user.
+     *
+     * @param userAddress - the address of the user to check
+     *
+     */
+
+    function getHealthFactor(address userAddress) external view returns(uint256 healthFactor){
+        //Call the health factor function
+        healthFactor = _healthFactor(userAddress);
+        return healthFactor;
+    }
 
     /**
      * Public function to allow anyone to know how much collateral value a user has. We can use this for health checks.
@@ -372,6 +521,8 @@ contract DSCEngine is ReentrancyGuard {
         // Get price from price feed
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[tokenAddress]);
 
+
+        // REMEMBER THE /* */ WRAPPED AROUND A VARIABLE INDICATE THAT ITS NOT USED
         (
             /* uint80 roundID */
             ,
@@ -391,6 +542,42 @@ contract DSCEngine is ReentrancyGuard {
 
         return usdValueOfToken;
     }
+
+    /**
+    * Function to find out how much of an token is worth the provided USD amount in WEI
+    * 1. We need the $/ETH price
+    * 2. Divide the USD amount we have, by the price of ETH $/ETH from step 1
+    * $2000 USD/ETH  ---> want to know how much token is worth $1000 USD ----> 1000/2000 = 0.5 ETH (not in WEI right now for demo purposes)
+    *
+    */
+    function getTokenAmountFromUSD(address tokenAddress,uint256 usdAmountInWei) public view moreThanZero(usdAmountInWei) isAllowedToken(tokenAddress) returns (uint256) {
+        // Get price of ETH from price feed - which is $/ETH. How do we get ETH/$?
+        
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[tokenAddress]);
+
+
+        // REMEMBER THE /* */ WRAPPED AROUND A VARIABLE INDICATE THAT ITS NOT USED
+        (
+            /* uint80 roundID */
+            ,
+            int256 price, // The price in USD - detailed as PRICE * e8 --> 8 decimal places
+            /*uint startedAt*/
+            ,
+            /*uint timeStamp*/
+            ,
+            /*uint80 answeredInRound*/
+        ) = priceFeed.latestRoundData();
+
+        // Need to multiply 'usdAmountInWei' by 1^18 to be able to divide by 'price' in standardised format  
+        // 'price' variable has 8 decimal places, we want 18 decimal places to be standardised for calculations
+        // ($10e18 * 1e18) / ($2000e8 * 1e10) = 0.005,000,000,000,000,000 = 0.005 ETH
+        return(usdAmountInWei * PRECISION) / (uint256(price) * ADDITIONAL_PRICEFEED_PRECISION);
+
+    }
+
+
+
+
 
     /////////////////////////////////////////////////////////
     // Public & External View Functions - Getter Functions //
@@ -428,9 +615,6 @@ contract DSCEngine is ReentrancyGuard {
         return s_priceFeeds[token];
     }
 
-    function getHealthFactor(address userAddress) public view returns (uint256) {
-        return _healthFactor(userAddress);
-    }
 
     /**
      * TODO - add liquidation bonus constant variable when get to point of doing liquidation function and write in getter function

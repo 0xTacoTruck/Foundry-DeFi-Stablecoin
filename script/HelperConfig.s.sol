@@ -55,11 +55,13 @@ contract HelperConfig is Script {
         //Need MockV3 Aggregator because we can't access a real one on Anvil. Need this for both ETH and BTC
 
         vm.startBroadcast();
+        // Pass the number of decimals to use for answer, pass the initial price of ETH to USD
         MockV3Aggregator ethUSDPriceFeed = new MockV3Aggregator(DECIMALS, ETH_INITIAL_ANSWER);
 
         //Mock ETH ERC20 token so we can fake depositing it into our system
-        ERC20Mock ethMockToken = new ERC20Mock("WETH", "WETH", msg.sender,1100e8); 
+        ERC20Mock ethMockToken = new ERC20Mock("WETH", "WETH", msg.sender,1000e8); 
 
+        // Pass the number of decimals to use for answer, pass the initial price of BTC to USD
         MockV3Aggregator btcUSDPriceFeed = new MockV3Aggregator(DECIMALS, BTC_INITIAL_ANSWER);
 
         //Mock BTC ERC20 token so we can fake depositing it into our system
