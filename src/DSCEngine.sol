@@ -133,6 +133,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__BreaksHealthFactor(uint256 healthFactorValue);
     error DSCEngine__MintFailed();
     error DSCEngine__HealthFactorOK();
+    error DSCEngine__HealthFactorNotImproved();
 
     ////////////////////
     // Events         //
@@ -142,7 +143,7 @@ contract DSCEngine is ReentrancyGuard {
     //Indexed Params are searchable by topic
     event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
     event DSCMinted(address indexed user, uint256 indexed amount);
-    event CollateralRedeemed(address indexed user, address indexed token, uint256 indexed amount);
+    event CollateralRedeemed(address indexed redeemedFrom, address indexed redeemedTo, address indexed token, uint256 amount);
 
     ////////////////////
     // Modifiers     //
@@ -273,17 +274,8 @@ contract DSCEngine is ReentrancyGuard {
     *
     */
     function redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral) public isAllowedToken(tokenCollateralAddress) moreThanZero(amountCollateral) nonReentrant {
-        // Update the amount of collateral use has of the specified token. Was thinking about adding checks in that the amount requested is less than the amount wanting to be withdraw, however, Patrick explains in the video that in these newer versions of solidity, this is not possible and it will revert.
-        s_collateralDeposited[msg.sender][tokenCollateralAddress] -= amountCollateral;
-
-        //Updated state, emit event
-        emit CollateralRedeemed(msg.sender, tokenCollateralAddress, amountCollateral);
-
-        // Normal thinking sugges to perform health check here, but this is quite gas inefficient. We can do the token trasnfer to user and then do health check because we will still revert the transaction if the health check fails
-        (bool success) = IERC20(tokenCollateralAddress).transfer(msg.sender, amountCollateral);
-        if (!success) {
-            revert DSCEngine__TransferFailed();
-        }
+        
+        _reedemCollateral(tokenCollateralAddress, amountCollateral, msg.sender, msg.sender);
 
         // Revert transaction if health check fails after updating collateral value of user
         _revertIfHealthFactorIsBroken(msg.sender);
@@ -319,16 +311,9 @@ contract DSCEngine is ReentrancyGuard {
     *
     */
     function burnDSC(uint256 amountDsc) public moreThanZero(amountDsc) {
-        s_dscMinted[msg.sender] -= amountDsc;
-        //Attempt to transfer DSC from user to contract before we directly call the burn function of DSC contract
-        bool success = i_dsc.transferFrom(msg.sender, address(this), amountDsc);
-
-        //This conditional is hypothetically unreachable, because if the transferFrom fails, it will revert with the transferFrom error - If its been implemented correctly
-        if(!success) {
-            revert DSCEngine__TransferFailed();
-        }
-
-        i_dsc.burn(amountDsc);
+        
+        // Call the internal _burn function, this is the public function so the behalfOf param and the From param are both msg.sender
+        _burnDSC(amountDsc, msg.sender, msg.sender);
 
         // Remove in future if not required - Don't think it is required
         _revertIfHealthFactorIsBroken(msg.sender);
@@ -362,6 +347,7 @@ contract DSCEngine is ReentrancyGuard {
 
 
     // @note - In future, we should add feature to liquidate protocol if the protocl becomes insovlent, add feature to sweep extra amounts into treasury during liquidation
+    // @note - In liquidation, the burning of DSC from teh liquidator is essentially saying I have enough collateral extra to cover the amount of DSC that puts the bad user below our health factor - give me the debt cost in the chosen collateral + 10% and we can wipe out the debt of the user that has fallen below the health factor so that they return the bad user to a healthier state, then remove the DSC tokens that the bad user has that caused the bad health factor by burning them
     /**
     * This function will liquidate a user's debt position if they are below the liquidation threshold. They must maintain a health factor above 1 to avoid liquidation.
     */
@@ -402,8 +388,21 @@ contract DSCEngine is ReentrancyGuard {
         uint256 totalCollateralToGiveLiquidator = collateralTokenAmountFromDebtBeingCovered + bonusCollateral;
 
         // Need to give the liquidator the collateral and burn the DSC of the bad user
-        
 
+        // Let liquidator receive the total collateral, including the bonus 10%
+        _reedemCollateral(tokenCollateralAddress, totalCollateralToGiveLiquidator, user, msg.sender);
+
+        // Burn DSC using internal burn function that allows us to burn from anybody
+        _burnDSC(debtToCover, user, msg.sender);
+
+        // _burnDSC is a low-level internal function that requires to check health after calling it to allow reverting
+        uint256 endingUserHealthFactor = _healthFactor(user);
+
+        if(endingUserHealthFactor <= startingUserHealthFactor) {
+            revert DSCEngine__HealthFactorNotImproved();
+        }
+
+        _revertIfHealthFactorIsBroken(msg.sender);
         
     }
 
@@ -467,6 +466,69 @@ contract DSCEngine is ReentrancyGuard {
         if (userHealthFactor < MIN_HEALTH_FACTOR) {
             revert DSCEngine__BreaksHealthFactor(userHealthFactor);
         }
+    }
+
+
+    /**
+    * This is an internal redeem collateral function that will be used for liquidation purposes and normal redeem collateral by allowing diff params
+    * The external redeem collateral function assumes the msg.sender as the user, however, in liquidation we want to reward a user for liquidating a bad -
+    * user by redeeming collateral from the bad user, to the user that covered the debt.
+    *
+    * @param tokenCollateralAddress - the address of the collateral token to redeem
+    * @param amountCollateral - the amount of collateral to redeem
+    * @param from - the address of the bad user
+    * @param to - the address of the good user to be rewarding for liquidating the bas user
+    *
+    */
+
+    function _reedemCollateral(address tokenCollateralAddress, uint256 amountCollateral, address from, address to) private {
+        // Update the amount of collateral use has of the specified token. Was thinking about adding checks in that the amount requested is less than the -
+        // amount wanting to be withdrawn, however, Patrick explains in the video that in these newer versions of solidity, this is not possible and it  -
+        // will revert.
+        s_collateralDeposited[from][tokenCollateralAddress] -= amountCollateral;
+
+        //Updated state, emit event
+        emit CollateralRedeemed(from, to, tokenCollateralAddress, amountCollateral);
+
+        // Normal thinking sugges to perform health check here, but this is quite gas inefficient. We can do the token trasnfer to user and then do health check because we will still revert the transaction if the health check fails
+        (bool success) = IERC20(tokenCollateralAddress).transfer(to, amountCollateral);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+
+        // Revert transaction if health check fails after updating collateral value of user
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
+
+    /**
+    * Internal burn function to allow us to brun DSC of anybody, and not just message.sender
+    * This will allow us to use this function for liquidation purposes
+    */
+    //In liquidation, the burning of DSC from teh liquidator is essentially saying I have enough collateral extra to cover the amount of DSC that puts the bad user below our health factor - give me the debt cost in the chosen collateral + 10% and we can wipe out the debt of the user that has fallen below the health factor so that they return the bad user to a healthier state, then remove the DSC tokens that the bad user has that caused the bad health factor by burning them
+    /**
+    * @param amountDscToBurn - the amount of DSC to burn to cover the debt change
+    * @param onBehalfOf - the address of the bad user in liquidation, or normal user if through public function input
+    * @param dscFrom - the address of the good user in liquidation, or normal user if through public function input
+    *
+    * @dev low-level internal function. Do not call unless the function calling it is checking the health factors being broken
+    */
+
+    function _burnDSC(uint256 amountDscToBurn, address onBehalfOf, address dscFrom) internal {
+        // Reduce the number of DSC of bad user in liquidation, or normal user in public function input
+        s_dscMinted[onBehalfOf] -= amountDscToBurn;
+
+        //Attempt to transfer DSC from user, or good user who covered the liquidation debt of a bad user -
+        //- to contract before we directly call the burn function of DSC contract
+        bool success = i_dsc.transferFrom(dscFrom, address(this), amountDscToBurn);
+
+        //This conditional is hypothetically unreachable, because if the transferFrom fails, it will revert with the transferFrom error - If its been implemented correctly
+        if(!success) {
+            revert DSCEngine__TransferFailed();
+        }
+
+        i_dsc.burn(amountDscToBurn);
+
+       
     }
 
     //////////////////////////////////////

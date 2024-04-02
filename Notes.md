@@ -7,7 +7,7 @@ This lesson explores what DeFi is, applications and a bunch of other things. Dur
 - Creation of an ERC20 token that will represent the value of the US dollar - stablecoin
 - 1 token will represent 1 US dollar
 - Tokens are pegged and backed by US dollars
-- System will always be "overcollateralised". At no point, should the value of all collateral < the $ backed value of all the tokens
+- System will always be "overcollateralised". At no point, should the value of all collateral < the \$ backed value of all the tokens
 
 The project will include source smart contracts for the DeFi system, deployment scripts for different chains, test suites for our smart contracts and scripts.
 
@@ -48,13 +48,13 @@ There are several mechanisms through which stablecoins achieve price stability:
 
 2. Crypto-collateralized stablecoins: These stablecoins are backed by reserves of other cryptocurrencies, typically held in a smart contract. Users lock up cryptocurrencies like Ether (ETH) or Bitcoin (BTC) as collateral to generate stablecoin tokens. The value of the collateralized cryptocurrencies must exceed the value of the stablecoin tokens issued to maintain price stability. MakerDAO's DAI is an example of a crypto-collateralized stablecoin.
 
-3. Algorithmic stablecoins: These stablecoins use algorithmic mechanisms to maintain price stability without explicit collateral backing. Algorithms adjust the stablecoin's supply based on supply-demand dynamics, aiming to keep the price pegged to a target value, such as $1. Examples include Terra's UST and Ampleforth (AMPL).
+3. Algorithmic stablecoins: These stablecoins use algorithmic mechanisms to maintain price stability without explicit collateral backing. Algorithms adjust the stablecoin's supply based on supply-demand dynamics, aiming to keep the price pegged to a target value, such as \$1. Examples include Terra's UST and Ampleforth (AMPL).
 
 ## Features of the stablecoin of this project
 
-1. Relative Stability: Anchored or Pegged against $1 USD
+1. Relative Stability: Anchored or Pegged against \$1 USD
    1. Will use Chainlink pricefeed
-   2. Set a function to exchange ETH and BTC for what their equivelant $USD is
+   2. Set a function to exchange ETH and BTC for what their equivelant \$USD is
 2. Stability Mechanism (Minting): Done Algorithmitically (Decentralised), 100% on-chain. No controlling entity.
    1. People can only mint the stablecoin when they have enough collateral (coded into smart contract)
 3. Collateral Type: Exogenous (Crypto) - will use crypto as collateral. Accepting the following:
@@ -83,7 +83,7 @@ For this lesson's project, we are just going to have them written in the DSCEngi
 
 In an overcollateralized DeFi system, users can borrow funds by providing more collateral than the value of the loan they want to take. This excess collateral acts as a buffer to cover any potential fluctuations in the value of the assets being used as collateral. An overcollateralised system is where the value amount of collateral will **NEVER** be worth less than the valued amount of all the backed/pegged tokens.
 
-For example, we deposit wETH as collateral that at the times was worth $60 dollars. For this, we recieved $40 worth of backed tokens. Then, the value of wETH plummits drastically to $10 dollars. This will cause drasatic instability in the valuation of the backed tokens as they are now not worth the orignal backed amount. An overcollateralised system prevents this from happening by ensuring that there is always more value in collateral than in the value of redeemed tokens/currency. This system will have precautions in place to liquidate, remove peoples positions, if they are nearing the point of having their collateral value threaten breaking the stability.
+For example, we deposit wETH as collateral that at the times was worth \$60 dollars. For this, we recieved \$40 worth of backed tokens. Then, the value of wETH plummits drastically to \$10 dollars. This will cause drasatic instability in the valuation of the backed tokens as they are now not worth the orignal backed amount. An overcollateralised system prevents this from happening by ensuring that there is always more value in collateral than in the value of redeemed tokens/currency. This system will have precautions in place to liquidate, remove peoples positions, if they are nearing the point of having their collateral value threaten breaking the stability.
 
 In these systems, there are often thresholds that are used to determine if actions is required to be taken to prevent instability of the backed tokens/currencies.
 
@@ -93,13 +93,13 @@ Liquidation occurs when the value of the collateral falls below a certain thresh
 
 Here's a simple analogy:
 
-Imagine you borrow $100 from a friend, and you give them your watch as collateral, which is worth $200. This is overcollateralization because the value of your collateral ($200) is more than the value of the loan ($100). Now, if the value of the watch drops to $150, you might be in danger of defaulting on the loan because the collateral is no longer enough to cover the loan amount. In this case, your friend might decide to sell the watch to get their $100 back.
+Imagine you borrow \$100 from a friend, and you give them your watch as collateral, which is worth \$200. This is overcollateralization because the value of your collateral (\$200) is more than the value of the loan (\$100). Now, if the value of the watch drops to \$150, you might be in danger of defaulting on the loan because the collateral is no longer enough to cover the loan amount. In this case, your friend might decide to sell the watch to get their \$100 back.
 
 Similarly, in a DeFi system, if the value of your collateral drops below a certain threshold, the protocol may automatically sell a portion of your collateral to repay the loan. This is called liquidation.
 
 The using of thresholds can also incentivise other accounts/individuals to liquidate others in bad positions to maintain stability, by offering rewards. For example:
 
-An individual deposits $100 wETH as collateral and redeems $50 of a stable token. The protocol has a 25% threshold. The value of wETH drops to $74, this raises alerts for breaching the threshold of 25% and allows liquidation to occur. An individual covers the cost of the $50 of the token, while the original depositor has their amount reduced to zero. As a reward for ensuring stability and covering the cost of the $50 worth of the token, that individual is rewarded with the $74 worth of collateral that was put down. The token remains stable, the original depositor is not in debt, and whom it was that liquidated the depositor is rewarded for assisting the stability.
+An individual deposits \$100 wETH as collateral and redeems \$50 of a stable token. The protocol has a 25% threshold. The value of wETH drops to \$74, this raises alerts for breaching the threshold of 25% and allows liquidation to occur. An individual covers the cost of the \$50 of the token, while the original depositor has their amount reduced to zero. As a reward for ensuring stability and covering the cost of the \$50 worth of the token, that individual is rewarded with the \$74 worth of collateral that was put down. The token remains stable, the original depositor is not in debt, and whom it was that liquidated the depositor is rewarded for assisting the stability.
 
 Liquidation helps maintain the stability and security of the DeFi system by ensuring that loans are adequately backed by collateral, even in volatile market conditions. It protects lenders from potential losses due to defaulting borrowers.
 
@@ -155,8 +155,8 @@ As you can see in the comments, its easier to think of these values as a percent
 
 What this value means is that even if the value of the collateral drops by half, it still covers the DSC debt. Therefore, users need to maintain 200% collateralisation.
 
-So if we imagine the whole collateral value is worth $200 USD, our code allows the user to have $100 USD worth of our USD pegged DSC tokens - meaning 100 DSC.
-If the users collateral became volatile and decreasing in value, we allow the users total collateral value to drop by 50% before we liquidate - e.g. the users collateral is now worth $100 USD - the same as our DSC token, which threatens the pegging of our DSC to the USD if the price continues to fall, and will violate our overcollateralised system.
+So if we imagine the whole collateral value is worth \$200 USD, our code allows the user to have \$100 USD worth of our USD pegged DSC tokens - meaning 100 DSC.
+If the users collateral became volatile and decreasing in value, we allow the users total collateral value to drop by 50% before we liquidate - e.g. the users collateral is now worth \$100 USD - the same as our DSC token, which threatens the pegging of our DSC to the USD if the price continues to fall, and will violate our overcollateralised system.
 
 **What is the LIQUIDATION_PRECISION?**
 
@@ -179,7 +179,7 @@ uint256 collateralAdjustedForThreshold =
 Calculating these equations, we can generate a value that is 1e18 long. Which we can make easier for human readers by dividing by 1e18. Lets walk through an example using the constant variables from before:
 
 ```
- collateralAdjustedForThreshold = ($200 * 50) / 100 =  100
+ collateralAdjustedForThreshold = (\$200 * 50) / 100 =  100
 
  Health Factor = (100 (from result above) * 1e18) => 100,000,000,000,000,000,000 (100e18) / 100 (total DSC minted by user) = 1,000,000,000,000,000,000 (1e18)
 
@@ -191,7 +191,7 @@ Our Project says that the MINIMUM health score we allow before liquidation is 1.
 Let's walk through another example:
 
 ```
-collateralAdjustedForThreshold = ($175 * 50) / 100 = 87.5
+collateralAdjustedForThreshold = (\$175 * 50) / 100 = 87.5
 
 Health Factor = (87.5 (from result above) * 1e18) => 87,500,000,000,000,000,000 (87.5e18) / 100 (total DSC minted by user) = 875,000,000,000,000,000
 
@@ -213,3 +213,184 @@ A simple approach to use is:
 6. Repeat steps 3-5 until development is complete
 
 This is a very brief and high-level guide. There are many resources available that dive deeper into this topic, but I wanted to ensure that I included some brief guidance.
+
+## Invariant definition, Layers of testing, Symbolic Execution & Formal Verification
+
+### Invariants
+
+In programming, the term "invariant" refers to a condition that remains true (unchanged) throughout the execution of a program or a specific portion of code, especially during critical points such as before and after function calls, loops, or state changes. In other words, it's something that should always hold true at specific points in the code.
+
+Ensuring that invariants are maintained is important for the correctness and stability of the program. Violating invariants can lead to unexpected behavior, bugs, or program crashes.
+
+For example, consider a banking application where the total balance of all accounts should always be non-negative. This is an invariant because it must hold true regardless of any deposits, withdrawals, or transfers happening in the system.
+
+Invariants are often enforced through validation checks, assertions, or by designing algorithms and data structures in a way that preserves these properties.
+
+**Example in Soldiity**
+
+Let's create a simple smart contract in Solidity that represents a bank account and ensures the invariant of a non-negative balance:
+
+```
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+//INVARIANT: The users bank balance should never be zero, regardless of withdrawing or depositing
+
+contract Bank {
+    // Mapping to store balances of each account
+    mapping(address => uint256) public balances;
+
+    // Event to log deposit and withdrawal events
+    event Deposit(address indexed account, uint256 amount);
+    event Withdrawal(address indexed account, uint256 amount);
+
+    // Function to deposit funds into the account
+    function deposit(uint256 amount) public {
+        require(amount > 0, "Deposit amount must be greater than 0");
+        
+        balances[msg.sender] += amount;
+        emit Deposit(msg.sender, amount);
+    }
+
+    // Function to withdraw funds from the account
+    function withdraw(uint256 amount) public {
+        require(amount > 0, "Withdrawal amount must be greater than 0");
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+        
+        balances[msg.sender] -= amount;
+        emit Withdrawal(msg.sender, amount);
+    }
+
+    // Function to get the balance of an account
+    function getBalance() public view returns (uint256) {
+        return balances[msg.sender];
+    }
+}
+```
+
+In this code:
+
+- We have a Bank contract with a mapping balances to store the balances of each account.
+- The deposit function allows users to deposit funds into their account. It increases their balance and emits a Deposit event.
+- The withdraw function allows users to withdraw funds from their account. It decreases their balance and emits a Withdrawal event.
+- Both deposit and withdraw functions include checks to ensure that the amount being deposited or withdrawn is greater than 0 and that the account has sufficient balance.
+- The invariant here is that the balance of an account should always be non-negative, and this is enforced by the code in the withdraw function.
+- By maintaining this invariant, we ensure the integrity and correctness of our banking system on the blockchain
+
+### Layers of Testing Talk
+
+There are a number of different levels of testing that a good developer would do on their code. A lot of this includes verifying our invariants remain as expected.
+
+
+#### Layer 1 - Unit Testing
+
+Testing very specific pieces of code, like functions and statements. Testing each function and statement thoroughly, while looking at the breadth of tests - or test coverage for statements, functions, branches, etc.
+
+THIS IS THE BARE MINIMUM, WELL.... IT WAS, UNTIL FUZZ TESTS CAME ALONG
+
+#### Layer 2 - Fuzz Tests
+
+Fuzzing is where you take random inp8uts and run them through your code. You have to define things in your code that you always want to hold true. We define a property in our program and then we throw a bunch of random values to try and break it!
+
+If you find something that breaks it, you know you ahve an adge case that you need to refactor your code to handle.
+
+An example - Having a function that completes a bunch of math and you know the function should never return zero, so you throw a whole bunch of numbers to the function to try and get it to return zero.
+
+#### Layer 3 - Static Analysis
+
+Layer 1 and Layer 2 testing are both dynamic testing approaches. With dynamic meaning that you are actually something - running/executing our code.
+
+Static analysis is where we don't run the code and instead look at the code itself, or use a tool like [Slither](https://github.com/crytic/slither) to look at our code, to identify issues. Even the solidity compiler can be viewed as a static analysis tool in a sense!
+
+#### Layer 4 - Formal Verification
+
+"Formal verification is the act of proving or disproving a given property of a system using a mathematical model" - Cyfrin
+
+We make a mathematical model of our system, and the property of the system.
+
+***Formal Verification tries to break properties using mathematical proofs***
+
+There are a number of techniques that you can use for formal verification, some of these are:
+- Symbolic Execution
+- Abstract Intepretation
+- Model Checking
+
+##### Symbolic Representation
+
+"Symbolic execution is one technique used for formal verification. Using a mathematical model" - Cyfrin
+
+Symbolic execution looks at different paths in a program and creates a mathematical representation (equation) for each path. Or to put it more plainly converting your code to a mathematical expression - a bunch of boolean expressions based on variables, etc. After converting our code into mathematical representations, we can pass the math functions to a solver which will tell us if our property (the invariant) is true or false.
+
+[secure-contract.com - Manticore & Intro to Symbolic Execution](https://secure-contracts.com/program-analysis/manticore/symbolic-execution-introduction.html)
+
+
+![Symbolic Representation of Paths](notes_img/symbolic_representation_intro_paths.PNG)
+
+
+**Symbolic Representation Lectures from YouTube**
+
+[Nickolai Zeldovich - Spring 2020 Lecture 10: Symbolic execution](https://youtu.be/-t85LW_nwck?si=RwiSWtiqcSDLQ6TC)
+
+[MIT OpenCourseWare - 10. Symbolic Execution](https://youtu.be/yRVZPvHYHzw?si=oT-fevUjdcPnP1WF)
+
+**What does 'paths' mean?**
+
+Paths refers to the different routes or sequences of instructions that can be taken during the execution of the code. The simplest way to think of a path is 'If - Else' statements. Where Path 1 is result of True in the 'If' statement, while path 2 is the result of False in the 'If' statement.
+
+However, it can also expand beyond this into areas that don't immediately jump to the forefront of the midn to think about. For example, look at this piece of code here:
+
+```
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+Contract SymbolicPathsDemo {
+   //INVARIANT: function must never revert
+   function f(uint256 a) public returns (uint256) {
+
+      a = a + 1; //PATH 1 - WE SIMPLY JUST RETURN A + 1 - return(a+1)
+                 //Path 2 - we pass in the max value for uint256 as 'a' and try to + 1 cauisng an overflow and causing the function to revert
+
+      return a;
+   }
+}
+
+```
+
+In the example just shown:
+
+**Path 1:** assert(a not 2^256 -1); a:= a+1 return a;
+**Path 2:** assert(a := 2^256); revert;
+
+**:=** = assignment operator.
+
+If we use a tool to helper generate the expressions we want to use and then pass it into a solver, we are going to see that for each path the solver is going to return a True value. This True value for each path indicates that both are possible - which violates the invariant we specified that it should never revert. We have just found a bug/issue in our code because it breaks the invariant/property.
+
+##### Symbolic Representation Tools and Links
+
+We are able to manually write out the expressions to formally verify paths of code, which we can then pass to solvers that accept the format we wrote our expressions in, but there are also a number of tools available for us to use to help us:
+
+[secure-contract.com - Manticore & Intro to Symbolic Execution](https://secure-contracts.com/program-analysis/manticore/symbolic-execution-introduction.html)
+
+[Microsoft Z3 solver - uses SMTLIB formatting](https://microsoft.github.io/z3guide/playground/Freeform%20Editing)
+
+
+[Trail of Bits - Manticore - uses SMTLIB formatting - Has Z3 solver](https://github.com/trailofbits/manticore)
+
+[HEVM - The hevm project is an implementation of the Ethereum virtual machine (EVM) made specifically for symbolic execution, unit testing and debugging of smart contracts](https://github.com/ethereum/hevm)
+
+Manticore and HEVM both come with a built in Z3 and therefore you can skip the step of converting booleans and just give you the output of the SMIT solver.
+
+**Limitations of Symbolic Representation**
+
+1. Its possible that solvers wont be able to answer our questions
+   - Sometimes the server might not be able to solve the proposed question too, especially if it is extremely complex - usually a timeout is specified to the solver to prevent issues where it will take an extremely long time to return the answer - like trying to invert a hash function
+2. Path Explosion Problem
+   - There is too many paths for a computer to explore in a reasonable amount of time and a solver would never be able to finish
+
+##### Is Formal Verificationt the be-all-end-all?
+
+"If you want to know if a bug can occur and if the property can be broken, you don’t necessarily need formal method for that and you can use a fuzzer, which is way easier to use and provide like kind of the same type of value. - Josselin" (From Trail of Bits who Patrick spoke with on this topic) - [Patrick Collins Medium Article](https://patrickalphac.medium.com/formal-verification-symbolic-execution-the-security-silver-bullet-38e0ac9072eb)
+
+"Sometimes a sufficiently powerful fuzzer is all you need, and symbolic execution and formal verification is overkill.
+
+Additionally, even formal verification doesn’t prove your code is bug-free. All it does is mathematically prove your code does that one specific thing correctly" - [Patrick Collins Medium Article](https://patrickalphac.medium.com/formal-verification-symbolic-execution-the-security-silver-bullet-38e0ac9072eb)
