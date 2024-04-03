@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/** @notice - TheUser1935 - appears that it no longer comes in the chainlink-brownie-contracts, therefore Cyfrin have recreated the file in their GitHub repo and I & you should keep a copy to re-use for other projects as required */
+/**
+ * @notice - TheUser1935 - appears that it no longer comes in the chainlink-brownie-contracts, therefore Cyfrin have recreated the file in their GitHub repo and I & you should keep a copy to re-use for other projects as required
+ */
 
 /**
  * @title MockV3Aggregator

@@ -292,9 +292,118 @@ THIS IS THE BARE MINIMUM, WELL.... IT WAS, UNTIL FUZZ TESTS CAME ALONG
 
 Fuzzing is where you take random inp8uts and run them through your code. You have to define things in your code that you always want to hold true. We define a property in our program and then we throw a bunch of random values to try and break it!
 
-If you find something that breaks it, you know you ahve an adge case that you need to refactor your code to handle.
+If you find something that breaks it, you know you have an adge case that you need to refactor your code to handle.
 
-An example - Having a function that completes a bunch of math and you know the function should never return zero, so you throw a whole bunch of numbers to the function to try and get it to return zero.
+Some example:
+
+- We have a balloon, that we market as being un-poppable - can't be broken (invariant), and we try and throw and use a crazy number of random items to pop this balloon and we do this over and over.
+
+- Having a function that completes a bunch of math and you know the function should never return zero (invariant), so you throw a whole bunch of numbers to the function to try and get it to return zero.
+
+##### Role of Fuzz Testing on Invariants
+
+Fuzz tests allow us to write a single test that focuses on a particular aspect or invariant, and using the one test repeat the test many time sover using random data to try and see if the invariant or expected logic breaks that is being tested.
+
+An easy way to understand the ability it gives us and the time that we can save using these tests, imagine if needed to verify an input X == Y in a function, with Y being a very very large or unknown-to-us value. In traditional test writing we would be writing test after test so that we could pass X+1 over and over - this would be extremely inefficient!
+
+##### Fuzz Tests in Foundry
+
+Foundry makes it super easy to write tests for our code, and it also makes it just as easy to write Fuzz tests!
+
+To turn a normal test, which is the majority of tests that we have used throughout this whole course, into a fuzz test all we need to do is provide paramater inputs into the test and then for any function or logic calls within that test we can reference that parameter input. Then Foundry when we run the test will AUTOMATICALLY generate random data for that test param input to be used in the test and it will repeat this over and over again for us!
+
+```
+// In This example imagine we are testing a function that should always allow users to mint a token, doesn't matter how many (invaraint) and -
+// we are wanting to test this logic and invariant.
+
+// Standard looking test in Foundry
+
+function testCanAlwaysMintTokens() public {
+   //Hardcoding the value to input to the function
+   uint256 amountOfTokens = 1;
+   bool mintedTokens = myProject.mintedSpecialToken(amountOfTokens);
+   assertFalse(maxAmountReached);
+}
+
+// Turning test into a Fuzz test
+
+//Let Foundry know that it needs to pass random data in for this test and repeat the test over and over
+
+function testCanAlwaysMintTokens(uint256 amountOfTokens) public {
+   bool mintedTokens = myProject.mintedSpecialToken(amountOfTokens);
+   assertTrue(mintedTokens);
+}
+
+// Perhaps in the fuzz test we were able to find a value for the input to the function that didn't allow us to mint as many tokens as we wanted to for - 
+// - whatever reason, perhaps its the max total supply number that can be maintained correctyl and vioalting it causes issues? Who knows without diving - 
+// - into it further, but fuzzing has helped us a lot!
+```
+##### Stateless Fuzz Tests - What the?
+
+Stateless Fuzz Tests refers to the approach of fuzz testing where there is no record kept for previous effects on the state as the next fuzz test goes underway. This can introduce some points of consideration to be aware of, for example, perhaps there is logic where the param input changes the value of a variable and ONLY if that varaible remains in that state can another condition or branch occur.
+
+Look at this image below, the only way that the second 'if' branch can ever be hit is if the function first encounters a param input of "7" where that value is stored, and then the function is called again. In stateless fuzzing, we could never reach this point without coming up with an approach to tackle this.
+
+![Stateless Fuzzing Demo](notes_img/fuzz_stateless_demo.PNG)
+
+##### Stateful Fuzzing
+
+Stateful fuzzing is where the final state of your previous fuzzing run is the starting state of your next run - This can include end results of functions and branches.
+
+To create stateful fuzzing tests in foundry, we need to use the "invariant_" keyword and it requires a littel bit of set-up - including importing 'StdInvaraint' from Forge's StdInvariant.sol file. Foundry uses this invaraint word a lot when doing stateful fuzzing - They use the word invariant to mean stateful fuzzing, it doesn;t just throw random data but it will also call random functions!
+
+```
+// Short, quick demo of stateful fuzzing
+
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.19;
+
+import {Test} from "forge-std/Test.sol";
+import {StdInvariant} from "forge-std/StdInvariant.sol";
+
+//Contrac to test - keeping in single file for ease of demo
+contract ExampleContract1 {
+
+    uint256 public val1;
+    uint256 public val2;
+    uint256 public val3;
+
+    function addToA(uint256 amount) external {
+        val1 += amount;
+        val3 += amount;
+    }
+
+    function addToB(uint256 amount) external {
+        val2 += amount;
+        val3 += amount;
+    }
+
+}
+
+contract StatefulTestDemo is StdInvariant, Test {
+
+   //Bunch of other code, like set up stuff
+
+   // Contract whose functions and variables to randomly test and record state of
+   ExampleContract1 foo;
+
+    function setUp() external {
+        foo = new ExampleContract1();
+    }
+
+    function invariant_A() external {
+        assertEq(foo.val1() + foo.val2(), foo.val3());
+    }
+
+    function invariant_B() external {
+        assertGe(foo.val1() + foo.val2(), foo.val3());
+    }
+   
+
+}
+```
+
 
 #### Layer 3 - Static Analysis
 

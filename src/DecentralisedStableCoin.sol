@@ -44,23 +44,25 @@ import {ERC20, ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensio
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-////////////////////
-// Errors         //
-////////////////////
 
 contract DecentralisedStableCoin is ERC20Burnable, Ownable {
+
+    /*//////////////////////////////////////////////////////////////
+                                Errors
+    //////////////////////////////////////////////////////////////*/
+
     // Error for when amount is less than zero
     error DecentralisedStableCoin__AmountMustBeMoreThanZero();
-
     // Error for when amount is more than balance
     error DecentralisedStableCoin__BurnAmountExceedsBalance();
-
     // Error to not allow sending to address(0)
     error DecentralisedStableCoin__ZeroAddressNotAllowed();
 
-    ////////////////////
-    // Constructor    //
-    ////////////////////
+
+    /*//////////////////////////////////////////////////////////////
+                             Constructor
+    //////////////////////////////////////////////////////////////*/
+
 
     /* @note - Because of the change that Open Zeppelin did in requiring contract owner address to be passed to the constructor for Ownable, I'm using msg.sender for now until development of the stablecoin engine is in progress. I want to make sure I can pass or set the owner contract address to the engine at some point (intial thinking) 
     * @note - Because I decided to roll-back the version of Open Zeppelin contracts from 5.x.x -> 4.8.3, the Ownable contract does not require the contract owner address to be passed in the constructor, because of this version. I do want to explore and confirm if my thinking was on track for this constructor input though
@@ -72,6 +74,11 @@ contract DecentralisedStableCoin is ERC20Burnable, Ownable {
     
     */
     constructor() ERC20("DecentralisedStableCoin", "DSC") Ownable() {}
+
+
+    /*//////////////////////////////////////////////////////////////
+                     Public & External Functions
+    //////////////////////////////////////////////////////////////*/
 
     //There is 2 major functions we want our engine to own:
     // 1.function to burn tokens
