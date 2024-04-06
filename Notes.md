@@ -235,7 +235,7 @@ Let's create a simple smart contract in Solidity that represents a bank account 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-//INVARIANT: The users bank balance should never be zero, regardless of withdrawing or depositing
+//INVARIANT: The users bank balance should never be LESS THAN zero, regardless of withdrawing or depositing
 
 contract Bank {
     // Mapping to store balances of each account
