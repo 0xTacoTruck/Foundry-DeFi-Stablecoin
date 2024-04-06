@@ -16,19 +16,20 @@ The project will include source smart contracts for the DeFi system, deployment 
 ## DeFi Overview
 
 [DeFi Llama](https://defillama.com/) - website that gives insight into the world of DeFi.
+
 [Maker DAO Forums](https://forum.makerdao.com/g) - Forums of the Maker DAO which is what this lesson's project is loosely based around
 
 DeFi is such a broad area that it is difficult to provide all information you need to know. I can, however, provide some quick general statements about DeFi:
 
 - DeFi is decentralised - with no reliance of 'trusting' intermediaries in traditional finance
 - DeFi is programmatic. It allows scalability, automation and also removes those intermediaries
-- DeFi is globally accessible to anyon with an internet connection. Breaking geograpchicaal barriers and underserved regions.
+- DeFi is globally accessible to anyone with an internet connection. Breaking geograpchicaal barriers and under-served regions.
 - DeFi on blockchain provides transaprency and immutability. Transactions and volumes can be verified in real-time.
 - There is a large sense of familiarity of concepts between DeFi and traditional, centralised finance
 - Exchanges, borrowing and lending, staking/locking of funds for periods of time all exist in DeFi
 - Yield protocols of DeFi work similiar to passive income generation that is seen with bonds, interest savings account, stock dividends
-- DeFi also includes protocls called Collateralized Debt Position (CDP). A CDP protocol allows users to lock up a certain amount of cryptocurrency as collateral to generate a loan in another cryptocurrency. An example is the MakerDAO system, users can lock up Ether (ETH) as collateral to generate DAI, a stablecoin pegged to the value of the US dollar. The locked-up ETH serves as collateral for the DAI loan, and users can later retrieve their collateral by repaying the borrowed DAI plus any accrued interest. There is no direct equivelance, but similarities can be found in: secured loans, margin trading, home equity lines of credit
-- It also includes ver standard transacting use cases - like buying and selling things, not just digitalised things but also paying for real work objects/services
+- DeFi also includes protocols called Collateralized Debt Position (CDP). A CDP protocol allows users to lock up a certain amount of cryptocurrency as collateral to generate a loan in another cryptocurrency or token. An example is the MakerDAO system, users can lock up Ether (ETH) as collateral to generate DAI, a stablecoin pegged to the value of the US dollar. The locked-up ETH serves as collateral for the DAI loan, and users can later retrieve their collateral by repaying the borrowed DAI plus any accrued interest. There is no direct equivelance in traditional finance, but similarities can be found in: secured loans, margin trading, home equity lines of credit
+- It also includes very standard transacting use cases - like buying and selling things, not just digitalised things but also paying for real world objects/services
 
 ### Quick Section on Maximal Extractable Value (MEV)
 
@@ -83,7 +84,7 @@ For this lesson's project, we are just going to have them written in the DSCEngi
 
 In an overcollateralized DeFi system, users can borrow funds by providing more collateral than the value of the loan they want to take. This excess collateral acts as a buffer to cover any potential fluctuations in the value of the assets being used as collateral. An overcollateralised system is where the value amount of collateral will **NEVER** be worth less than the valued amount of all the backed/pegged tokens.
 
-For example, we deposit wETH as collateral that at the times was worth \$60 dollars. For this, we recieved \$40 worth of backed tokens. Then, the value of wETH plummits drastically to \$10 dollars. This will cause drasatic instability in the valuation of the backed tokens as they are now not worth the orignal backed amount. An overcollateralised system prevents this from happening by ensuring that there is always more value in collateral than in the value of redeemed tokens/currency. This system will have precautions in place to liquidate, remove peoples positions, if they are nearing the point of having their collateral value threaten breaking the stability.
+For example, we deposit wETH as collateral that at the times was worth \$60 dollars. For this, we recieved \$40 worth of backed tokens. Then, the value of wETH plummits drastically to \$10 dollars. This will cause drastic instability in the valuation of the backed tokens as they are now not worth the orignal backed amount. An overcollateralised system prevents this from happening by ensuring that there is always more value in collateral than in the value of redeemed (minted) tokens/currency. This system will have precautions in place to liquidate, remove peoples positions, if they are nearing the point of having their collateral value threaten breaking the stability.
 
 In these systems, there are often thresholds that are used to determine if actions is required to be taken to prevent instability of the backed tokens/currencies.
 
