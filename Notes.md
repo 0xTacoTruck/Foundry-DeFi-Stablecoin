@@ -503,3 +503,219 @@ Manticore and HEVM both come with a built in Z3 and therefore you can skip the s
 "Sometimes a sufficiently powerful fuzzer is all you need, and symbolic execution and formal verification is overkill.
 
 Additionally, even formal verification doesn’t prove your code is bug-free. All it does is mathematically prove your code does that one specific thing correctly" - [Patrick Collins Medium Article](https://patrickalphac.medium.com/formal-verification-symbolic-execution-the-security-silver-bullet-38e0ac9072eb)
+
+## Tips on Fuzz stateful testing/Fuzzing (A.K.A as invaraint testing in Foundry)
+
+Foundry uses the 'invaraint_' keyword in function names of the fuzz tests to identify if they are invariant tests, you append the rest of the function test name after it
+
+### Open Testing
+
+Open testing is where the default configuration for target contracts is set to all contracts deployed inside the test function and our test will randomly call functions across the board
+
+### Targeted Invariant Testing
+
+Invariant testing with Foundry allows us to specifiy specific smart contracts to run tests against where the fuzzer will randomlly call the functions within that contract, we can still provide type input parameters to pass in to test these functions too. Foundry will keep record of the state of the testing leading up to its stage so we aren't flying blind with the testing. Our tests are trying to break the invariant we specifiy with our asserts.
+
+Here is a quick example of how we tell Foundry to target a smart contract for testing:
+```
+function setUp() public {
+          
+        //TargetContract tells foundry what contract to randomlly call functions of and pass random values to - We are going to pass our engine contract
+        targetContract(address(myObject));
+    }
+
+
+//Invariant - should always equal deposited amount
+function invariant_myObjectAlwaysHasBalance() public {
+
+    uint256 depositedAmount = myObject.getDepositedAmount();
+    uint256 contractBalance = myObject.balance;
+
+    assertEq(depostedAmount,contractBalance);
+}
+
+```
+
+#### Handlers
+
+Handlers are contracts that we use when we might need to create certain conditions for testing - for example, we might need to pass a bunch of checks before we can execute a statement in a function and if we don't create the params to allow the testing to reach that point then we will never be able to test it.
+
+When wanting to use handlers, which can be super useful, the way we work with them is to tell Foundry that the handler contract is the target contract! This tell foundry to call the functions within the handler contract and we still keep our assert in our invariants test file. The test will callthe functions of the handler, pass in paramter values and all the while we are still making sure our invariant remains as detailed. This also means that we aren't just limited to the handler having functions for one contract we want to test, we are able to test multiple contracts and their functions and see how this all holds up with our invariants.
+
+forge-std also contains so many useful functions and tools for us to achieve the creation of scenario set up for testing - a super useful function is the 'bound(uint256 x, uint256 min, uint256 max)' function that allows us to manipulate a range of values a variable can be - for example, perhaps we can't have the test use a zero value so we set the minimum value to = 1, and maybe we also want to specifiy the max it can be so we pass a max, such as 'type(uint96).max'
+
+```
+    function setUp() public {
+            
+            //TargetContract tells foundry what contract to randomlly call functions of and pass random values to - We are going to pass our engine contract
+            targetContract(address(Helper));
+        }
+
+    //Invariant - should always equal deposited amount
+    function invariant_myObjectAlwaysHasBalance() public {
+
+        uint256 depositedAmount = myObject.getDepositedAmount();
+        uint256 contractBalance = myObject.balance;
+
+        assertEq(depostedAmount,contractBalance);
+    }
+
+
+-----------------------------------------------------------------------------
+
+contract Helper is Test {
+
+    MyObject myObject
+
+    uint96 public constant MAX_DEPOSIT_SIZE = type(uint96).max;
+
+    //Constructor function is possible to initialise things
+
+
+    //Set Up function to set everythin up for tests
+
+
+
+    //DEPOSIT FUNCTIONS THAT WE CAN CONTROL FLOW AND VALUES OF FROM FUZZING PRIOR TO CALLING ACTUAL CONTRACT DEPOSIT FUNCTIONS
+
+    function depositStuff(address user, uint256 someValue) public {
+        someValue = bound(someValue,1,MAX_DEPOSIT_SIZE);
+
+        //Only want to pass addresses that aren't address(0)
+        if(user == address(0)){
+            return;
+        }
+
+        //Call teh function that we want to test with the restricted params to create the scenario we are trying to fuzz
+        bool success = myObject.depositStuff(user, someValue);
+
+    }
+}
+```
+
+### Fail on Revert vs Continue On Revert
+
+We are able to provide Foundry invariant settings in our foundry.toml file to modify and control the execution of our invariant tests. See the example below:
+
+```
+[invariant]
+runs = 250              # The number of runs that must execute for each invariant test group
+depth = 50              # The number of calls executed to attempt to break invariants in one run
+fail_on_revert = true   # Fails the invariant fuzzing if a revert occurs
+```
+
+There are different reasons and scenarios where we might want to change the values. Some consideration points are as follows:
+
+- runs - too small amount and we might not find edge cases that break our invariant, too large and we might be wasting our time
+- depth - too many for limited depth of project code makes use waste time, too little and we miss the coverage we might need
+- fail_on_revert - our logic and test set up might be expecting reverts and we would be stopping our tests very fast instead of trying to break the actual invariant, perhaps we want to quickly get some tests up and running and see what results we get and more cases we have the better, perhaps reverts lead to something else that we want to include in our tests, perhaps we want to immediately revert because we restricted conditions and we are diving in trying to find edge cases that break our invariant
+
+Due to the fact that there can be times where you might want to fail on revert and other times that you want to continue, it is quite common to create sub-folders of the fuzzing folder in test folder location to differentiate between testing for fail on revert and continue on revert and inside each of these folders is where you can have your tests files relevant to each direction you want to take on the fail_on_revert setting.
+```
+->test
+--->fuzzing
+------>ContinueOnRevertInvariants
+--------->ContinueOnReverts.t.sol
+--------->ContinueOnRevertHandler.t.sol
+------>StopOnRevertInvariants
+--------->StopOnReverts.t.sol
+--------->StopOnRevertHandler.t.sol
+```
+
+### Ghost Variables
+
+Ghost variables are varaibles that we create and implement in our fuzzing, including in our handler that we can use to help us with our testing that aren't actually part of the normal code. They are helpful in bounding values, tracking the amount of times a function is called, etc.
+
+For example, perhaps we are expecting to see a value present > zero which should be the result of a function - maybe that function isn't getting enough GOOD calls with param values to fully execute all lines of code of the function - e.g we call return early.
+
+We could implement a ghost variable to track how many times that function was called during the testing and reached the end of the function so that we can do some debugging. We could also move the increment of our varaible within the function itself to figure out where we might be encountering the problem we are trying to udnerstand.
+
+#### Troubleshooting an issue in the Handler in this project using ghost variable
+
+In this project, I had a problem in the handler where the total supply value was always zero and never being updated, using a ghost varaible allowed us to pinpoint where abouts an issue lied in the function. I realised that it had something to do with the collateral value of the msg.sender and the depositCollateral function - however, my orignal thinking was off an the actual cause which I originally thought it may have had something to do with the random order that these functions are called in. I was slightly off though, the reason why the totalCollateralValue was zero for msg.sender was not due to the order of which the functions (deposit and redeem functions) are called, but rather that Foundry fuzzing doesn't just pass random param values it will also use different addresses for its calls! This means that the address of msg.sender who deposited collateral before, isnt going to be the same address that is calling the mint function in the handler!
+
+After identifying the problem, we know that we just need a way to use msg.sender addresses that have successfully deposited. This means we can then also use those addresses for redeeming collateral, as well as calling the mint function.
+
+**How can we track addresses that we know have completed deposits?**
+
+There is always a few ways to skin a cat and this is also true in this instance. Depending on your function designs in the handler you could call the deposit before executing the rest of the mint logic, you can create an array of addresses that you can interact with (taking consideration that you could push repeat addresses to the array), etc.
+
+## Using Foundry to print out the functions of a contract and its function signature - 'forge inspect'
+
+forge inspect is a useful command that can allow us to explore a variety of different information about a smart contract. Look a the code block below to see what fields we can inspect:
+
+```$
+$ forge inspect --help
+Get specialized information about a smart contract
+
+Usage: forge.exe inspect [OPTIONS] <CONTRACT> <FIELD>
+
+Arguments:
+  <CONTRACT>
+          The identifier of the contract to inspect in the form `(<path>:)?<contractname>`
+
+  <FIELD>
+          The contract artifact field to inspect
+
+          [possible values: abi, bytecode, deployedBytecode, assembly, assemblyOptimized, methodIdentifiers, gasEstimates, storageLayout, devdoc, ir, irOptimized, metadata, userdoc, ewasm, errors, events]
+
+
+
+//EXAMPLE FORMAT TO INSPECT CONTRACT FUNCTIONS
+$forge inspect CONTRACTNAME methods OR methodIdentifiers
+
+$forge inspect DSCEngine methods
+{
+  "burnDSC(uint256)": "4c1697b1",
+  "calculateHealthFactor(uint256,uint256)": "01f72884",
+  "depositCollateral(address,uint256)": "a5d5db0c",
+  "depositCollateralAndMintDSC(address,uint256,uint256)": "2575a367",
+  "getAccountCollateralValue(address)": "7d1a4450",
+  "getAccountInfo(address)": "7b510fe8",
+  "getAdditionalPriceFeedPrecision()": "d40e0152",
+  "getApprovedCollateralTokens()": "ae064d3e",
+  "getCollateralTokenBalanceOfUser(address,address)": "777f4a0a",
+  "getCollateralTokenPriceFeedAddress(address)": "b0cbab0c",
+  "getDSCAddress()": "eb567df4",
+  "getHealthFactor(address)": "fe6bcd7c",
+  "getLiquidationBonus()": "59aa9e72",
+  "getLiquidationPrecision()": "6c8102c0",
+  "getLiquidationThreshold()": "4ae9b8bc",
+  "getMinHealthFactor()": "8c1ae6c8",
+  "getPrecision()": "9670c0bc",
+  "getTokenAmountFromUSD(address,uint256)": "638ca89c",
+  "getUsdValueOfToken(address,uint256)": "895298ae",
+  "liquidate(address,address,uint256)": "26c01303",
+  "mintDSC(uint256)": "d0bb6c6e",
+  "redeemCollateral(address,uint256)": "9acd81b3",
+  "redeemCollateralForDSC(address,uint256,uint256)": "0ebf956d"
+}
+```
+
+## Managing Oracle Connection in your Project - They are their own system too, check on them
+
+It is easy to fall into the trap of just simply bringing in what you require for your Oracle connection and then just forgetting about it and assuming it will work, however, oracles are their own system and we need to account for anything that may happen from their network. Essentially being defensive minded in our coding.
+
+For example, in our project we are using an Oracle connection for pricefeeds through Chainlink, what if something was to happen to the the network getting new updated prices? We would be faced with old prices, or stale prices, for the pricefeeds we incorporate. We should build into our project some logic to check for staleness of prices so that we are combating any potential issues that arise from bad data input from the Chainlink Oracle - allowing us to do such things as pausing transaction until we recieve an updated pricefeed value of an answer.
+
+The Chainlink Docs also have the 'Show more detail' checkbox to provide us quick analysis of the varying datafeeds key properties beyond just the code, such as: deviation, heartbeat (how often the answer should be getting updated), decimals used in pricing.
+
+![Chainlink Docs - Pricefeed Data](notes_img/chainlink_pricefeeds_extra_data.PNG)
+
+In fact, in this project we leverage a library that we can use to handle such checks. May organisation also provide these sort of libraries in packages to allow developers to quickly leverage this work and not have to build from scratch when ther should be repetitiveness of logic. In this project, I coded along with Patrick for the experience.
+
+## Preparing Project For a Security Audit
+
+A security audit and review should be an instrumental and key activity completed prior to deploying your project into the real world. This is to protect the project, and the users.
+
+But a security audit is not a 1-stop-shop, there are steps that you should be taking from the very beggining of your project to ensure you are coding in as a secure manner as possible.
+
+There are a number of resources that you casn use for reference to help with security considerations, they can include such things as checklists, best practises, templates, and so much more.
+
+Below will be some useful links to review: 
+
+[nascentxyz/simple-security-toolkit](https://github.com/nascentxyz/simple-security-toolkit)
+
+[shanzson/Smart-Contract-Auditor-Tools-and-Techniques](https://github.com/shanzson/Smart-Contract-Auditor-Tools-and-Techniques)
+
+[transmissions11/solcurity](https://github.com/transmissions11/solcurity)

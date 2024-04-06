@@ -77,6 +77,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // Import Aggregator V3 Interface so we can get pricefeeds
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
+// Allows us to use the stale price checker before returning latest round data. If price is stale, the function in this library will revert with an erorr
+import{ChainlinkOracleLib} from "../src/libraries/ChainlinkOracleLib.sol";
+
 contract DSCEngine is ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                            State Variables
@@ -132,6 +135,14 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__MintFailed();
     error DSCEngine__HealthFactorOK();
     error DSCEngine__HealthFactorNotImproved();
+
+
+    /*//////////////////////////////////////////////////////////////
+                                Types
+    //////////////////////////////////////////////////////////////*/
+
+    using ChainlinkOracleLib for AggregatorV3Interface;
+
 
     /*//////////////////////////////////////////////////////////////
                                 Events
@@ -626,7 +637,7 @@ contract DSCEngine is ReentrancyGuard {
             /*uint timeStamp*/
             ,
             /*uint80 answeredInRound*/
-        ) = priceFeed.latestRoundData();
+        ) = priceFeed.staleCheckLatestRoundData();
 
         // Calculate USD value of token amount by turning the 8 decimal place 'answer' to 18 decimal places before multiplying by the amount (in WEI)
         usdValueOfToken = (uint256(answer) * ADDITIONAL_PRICEFEED_PRECISION) * amount;
@@ -665,7 +676,7 @@ contract DSCEngine is ReentrancyGuard {
             /*uint timeStamp*/
             ,
             /*uint80 answeredInRound*/
-        ) = priceFeed.latestRoundData();
+        ) = priceFeed.staleCheckLatestRoundData();
 
         // Need to multiply 'usdAmountInWei' by 1^18 to be able to divide by 'price' in standardised format
         // 'price' variable has 8 decimal places, we want 18 decimal places to be standardised for calculations
